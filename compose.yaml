@@ -7,8 +7,15 @@ services:
     restart: unless-stopped
     environment:
       HOST_STATUS_FILE: /app/runtime/host-status.json
+      WATCHDOG_STATUS_FILE: /app/runtime/watchdog-status.json
+      CONTROL_DIR: /app/control
+      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      OPENAI_MODEL: gpt-5.4-mini
     volumes:
       - ./.runtime:/app/runtime:ro
+      - ./.runtime/control:/app/control
+    secrets:
+      - openai_api_key
     read_only: true
     cap_drop:
       - ALL
@@ -152,3 +159,5 @@ secrets:
     file: ./.secrets/postgres_password
   n8n_encryption_key:
     file: ./.secrets/n8n_encryption_key
+  openai_api_key:
+    file: ./.secrets/openai_api_key

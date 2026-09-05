@@ -15,6 +15,10 @@ New-RandomSecret (Join-Path $secretDirectory 'postgres_password')
 New-RandomSecret (Join-Path $secretDirectory 'n8n_encryption_key') 64
 New-RandomSecret (Join-Path $secretDirectory 'runners_auth_token') 64
 New-RandomSecret (Join-Path $secretDirectory 'dashboard_password') 18
+$openAiKeyPath = Join-Path $secretDirectory 'openai_api_key'
+if (-not (Test-Path -LiteralPath $openAiKeyPath)) {
+    [IO.File]::WriteAllText($openAiKeyPath, '', [Text.UTF8Encoding]::new($false))
+}
 $environmentFile = Join-Path (Split-Path $PSScriptRoot -Parent) '.env'
 $runnerToken = [IO.File]::ReadAllText((Join-Path $secretDirectory 'runners_auth_token'))
 if (-not (Test-Path -LiteralPath $environmentFile)) {

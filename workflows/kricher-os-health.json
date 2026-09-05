@@ -15,14 +15,14 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 6
+              "field": "minutes",
+              "minutesInterval": 5
             }
           ]
         }
       },
       "id": "7e0032ce-7763-4201-b7bc-ab0f504233f2",
-      "name": "Toutes les 6 heures",
+      "name": "Toutes les 5 minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [260, 400]
@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const status = $input.first().json;\nconst services = status.services ?? {};\nconst problems = [];\nif (services.n8n !== true) problems.push('n8n');\nif (services.postgres !== true) problems.push('PostgreSQL');\nif (!status.host) problems.push('supervision Windows');\nif (problems.length) {\n  throw new Error(`Services indisponibles : ${problems.join(', ')}`);\n}\nreturn [{ json: {\n  state: 'healthy',\n  checkedAt: status.checkedAt,\n  version: status.version,\n  cpuLoadPercent: status.host.cpuLoadPercent,\n  memoryUsedPercent: status.host.memory.usedPercent,\n  lastBackupAt: status.host.backup?.createdAt ?? null\n} }];"
+        "jsCode": "const status = $input.first().json;\nconst watched = status.watchdog?.services ?? {};\nconst expected = ['dashboard', 'gateway', 'n8n', 'n8n-runner', 'postgres'];\nconst problems = expected.filter(name => watched[name]?.healthy !== true);\nif (!status.host) problems.push('supervision Windows');\nif (status.watchdog?.interventionRequired) problems.push('intervention manuelle requise');\nif (problems.length) {\n  throw new Error(`Services indisponibles : ${problems.join(', ')}`);\n}\nreturn [{ json: {\n  state: 'healthy',\n  checkedAt: status.checkedAt,\n  version: status.version,\n  services: expected,\n  cpuLoadPercent: status.host.cpuLoadPercent,\n  memoryUsedPercent: status.host.memory.usedPercent,\n  lastBackupAt: status.host.backup?.createdAt ?? null\n} }];"
       },
       "id": "35256967-0e77-4557-9cb2-03e43e32ad6d",
       "name": "Valider les services",
@@ -56,14 +56,14 @@
     "Test manuel": {
       "main": [[{ "node": "Lire l'état de KRICHER OS", "type": "main", "index": 0 }]]
     },
-    "Toutes les 6 heures": {
+    "Toutes les 5 minutes": {
       "main": [[{ "node": "Lire l'état de KRICHER OS", "type": "main", "index": 0 }]]
     },
     "Lire l'état de KRICHER OS": {
       "main": [[{ "node": "Valider les services", "type": "main", "index": 0 }]]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "timezone": "Europe/Paris",

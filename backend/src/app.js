@@ -3,6 +3,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import net from 'node:net'
 import { readFile } from 'node:fs/promises'
+import { createControlService } from './control.js'
+import { askAssistant } from './assistant.js'
 
 async function checkHttp(url) {
   try {
@@ -30,22 +32,46 @@ async function readHostStatus(file) {
   } catch { return null }
 }
 
-export function createApp() {
+export function createApp(options = {}) {
   const app = express()
+  const control = createControlService(options.controlDir ?? process.env.CONTROL_DIR)
   const startedAt = new Date(Date.now() - process.uptime() * 1000).toISOString()
   app.disable('x-powered-by')
   app.use((_req, res, next) => {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" })
     next()
   })
-  app.get('/api/health', (_req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok' }))
-  app.get('/api/status', async (_req, res) => {
-    const [n8n, postgres, host] = await Promise.all([
+  app.use(express.json({ limit: '16kb' }))
+  async function getStatus() {
+    const [n8n, postgres, host, watchdog] = await Promise.all([
       checkHttp(process.env.N8N_HEALTH_URL || 'http://n8n:5678/healthz'),
       checkTcp(process.env.POSTGRES_HOST || 'postgres', Number(process.env.POSTGRES_PORT || 5432)),
       readHostStatus(process.env.HOST_STATUS_FILE),
+      readHostStatus(process.env.WATCHDOG_STATUS_FILE),
     ])
-    res.set('Cache-Control', 'no-store').json({ version: '0.2.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres }, host })
+    return { version: '0.3.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres }, host, watchdog }
+  }
+  app.get('/api/health', (_req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok' }))
+  app.get('/api/status', async (_req, res) => {
+    res.set('Cache-Control', 'no-store').json(await getStatus())
+  })
+  app.get('/api/control/capabilities', (_req, res) => res.set('Cache-Control', 'no-store').json(control.capabilities()))
+  app.post('/api/control/request', async (req, res) => {
+    try {
+      const outcome = await control.enqueue(req, req.body)
+      if (outcome.error) return res.status(outcome.status).json({ error: outcome.error })
+      res.status(202).json({ request: outcome.request })
+    } catch { res.status(503).json({ error: 'Impossible de transmettre la demande à Windows.' }) }
+  })
+  app.get('/api/control/requests/:id', async (req, res) => {
+    const outcome = await control.result(req, req.params.id)
+    if (outcome.error) return res.status(outcome.status).json({ error: outcome.error })
+    res.set('Cache-Control', 'no-store').json(outcome.result)
+  })
+  app.post('/api/assistant', async (req, res) => {
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages.filter(item => ['user', 'assistant'].includes(item?.role) && typeof item?.content === 'string').slice(-10) : []
+    if (!messages.length) return res.status(400).json({ error: 'Message manquant.' })
+    res.set('Cache-Control', 'no-store').json(await askAssistant(messages, await getStatus()))
   })
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }))
   const publicDir = fileURLToPath(new URL('../../public/', import.meta.url))
