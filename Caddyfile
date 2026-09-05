@@ -1,0 +1,28 @@
+www.kricher.fr {
+	encode zstd gzip
+
+	basic_auth {
+		kricher {$DASHBOARD_PASSWORD_HASH}
+	}
+
+	reverse_proxy dashboard:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+n8n.kricher.fr {
+	encode zstd gzip
+	reverse_proxy n8n:5678
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

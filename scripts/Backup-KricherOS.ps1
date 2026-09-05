@@ -1,10 +1,14 @@
 param(
-    [string]$BackupRoot = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'KRICHER-OS-Backups'),
+    [string]$BackupRoot = 'K:\KRICHER-OS\Backups',
     [int]$RetentionDays = 14
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
+$backupDrive = Split-Path -Qualifier $BackupRoot
+if (-not (Test-Path -LiteralPath $backupDrive)) {
+    throw "Le lecteur de sauvegarde $backupDrive n'est pas disponible."
+}
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $snapshotDirectory = Join-Path $BackupRoot $timestamp
 New-Item -ItemType Directory -Path $snapshotDirectory -Force | Out-Null
@@ -32,15 +36,38 @@ function Export-PostgresDump([string]$Destination) {
     }
 }
 
+function Export-N8nDataArchive([string]$Destination) {
+    $dockerPath = (Get-Command docker.exe -ErrorAction Stop).Source
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $dockerPath
+    $startInfo.Arguments = 'run --rm --volume kricher-os_n8n_data:/source:ro alpine:3.22 tar -czf - -C /source .'
+    $startInfo.WorkingDirectory = $projectRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    $file = [IO.File]::Create($Destination)
+    try { $process.StandardOutput.BaseStream.CopyTo($file) } finally { $file.Dispose() }
+    $errorText = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0) {
+        Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+        throw "La sauvegarde des données n8n a échoué : $errorText"
+    }
+}
+
 Export-PostgresDump (Join-Path $snapshotDirectory 'n8n-postgres.dump')
-& docker.exe run --rm --volume 'kricher-os_n8n_data:/source:ro' --volume "${snapshotDirectory}:/backup" alpine:3.22 tar -czf /backup/n8n-data.tgz -C /source .
-if ($LASTEXITCODE -ne 0) { throw 'La sauvegarde du volume n8n a échoué.' }
+Export-N8nDataArchive (Join-Path $snapshotDirectory 'n8n-data.tgz')
 
 Copy-Item -LiteralPath (Join-Path $projectRoot '.secrets\n8n_encryption_key') -Destination (Join-Path $snapshotDirectory 'n8n_encryption_key')
+Copy-Item -LiteralPath (Join-Path $projectRoot '.secrets\dashboard_credentials.txt') -Destination (Join-Path $snapshotDirectory 'dashboard_credentials.txt')
 @{
     createdAt = (Get-Date).ToUniversalTime().ToString('o')
     retentionDays = $RetentionDays
-    components = @('PostgreSQL', 'n8n data', 'n8n encryption key')
+    components = @('PostgreSQL', 'n8n data', 'n8n encryption key', 'dashboard credentials')
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $snapshotDirectory 'manifest.json') -Encoding UTF8
 
 Get-ChildItem -LiteralPath $BackupRoot -Directory | Where-Object {

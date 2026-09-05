@@ -30,4 +30,6 @@ docker compose exec postgres pg_isready -U n8n -d n8n
 
 Les images sont épinglées à des versions précises. Une mise à jour doit être testée avant de modifier leurs versions.
 
-Les sauvegardes et procédures courantes sont décrites dans [`docs/operations.md`](docs/operations.md).
+Les sauvegardes quotidiennes sont écrites sur le second NVMe dans `K:\KRICHER-OS\Backups`. Les procédures courantes sont décrites dans [`docs/operations.md`](docs/operations.md).
+
+La préparation des accès HTTPS à `www.kricher.fr` pour le tableau de bord et `n8n.kricher.fr` pour n8n se trouve dans [`docs/public-access.md`](docs/public-access.md). Cette configuration reste inactive tant que la zone DNS OVH et la redirection des ports de la box ne sont pas prêtes.

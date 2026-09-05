@@ -1,0 +1,39 @@
+services:
+  gateway:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    env_file:
+      - ./.secrets/caddy.env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      n8n:
+        condition: service_healthy
+    networks:
+      - default
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  n8n:
+    environment:
+      N8N_HOST: n8n.kricher.fr
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://n8n.kricher.fr/
+      WEBHOOK_URL: https://n8n.kricher.fr/
+      N8N_PROXY_HOPS: "1"
+      N8N_SECURE_COOKIE: "true"
+
+volumes:
+  caddy_data:
+  caddy_config:
