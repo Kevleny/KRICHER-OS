@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $watchdog = Join-Path $PSScriptRoot 'Watch-KricherOS.ps1'
+$hiddenRunner = Join-Path $PSScriptRoot 'Run-PowerShellHidden.vbs'
 $taskName = 'KRICHER OS - Surveillance et controle'
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$watchdog`""
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "//B //NoLogo `"$hiddenRunner`" `"$watchdog`""
 $triggers = @(
     (New-ScheduledTaskTrigger -AtLogOn -User $currentUser),
     (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 2))

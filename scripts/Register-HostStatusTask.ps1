@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $collector = Join-Path $PSScriptRoot 'Collect-HostStatus.ps1'
+$hiddenRunner = Join-Path $PSScriptRoot 'Run-PowerShellHidden.vbs'
 $taskName = 'KRICHER OS - Supervision Windows'
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$collector`""
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "//B //NoLogo `"$hiddenRunner`" `"$collector`""
 $triggers = @(
     (New-ScheduledTaskTrigger -AtLogOn -User $currentUser),
     (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5))

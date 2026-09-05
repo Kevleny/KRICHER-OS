@@ -43,13 +43,16 @@ export function createApp(options = {}) {
   })
   app.use(express.json({ limit: '16kb' }))
   async function getStatus() {
-    const [n8n, postgres, host, watchdog] = await Promise.all([
+    const [n8n, postgres, host, watchdog, backup, backupVerification, notifications] = await Promise.all([
       checkHttp(process.env.N8N_HEALTH_URL || 'http://n8n:5678/healthz'),
       checkTcp(process.env.POSTGRES_HOST || 'postgres', Number(process.env.POSTGRES_PORT || 5432)),
       readHostStatus(process.env.HOST_STATUS_FILE),
       readHostStatus(process.env.WATCHDOG_STATUS_FILE),
+      readHostStatus(process.env.BACKUP_STATUS_FILE || '/app/runtime/backup-status.json'),
+      readHostStatus(process.env.BACKUP_VERIFICATION_STATUS_FILE || '/app/runtime/backup-verification-status.json'),
+      readHostStatus(process.env.NOTIFICATION_STATUS_FILE || '/app/runtime/notification-status.json'),
     ])
-    return { version: '0.3.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres }, host, watchdog }
+    return { version: '0.4.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres }, host, watchdog, backup, backupVerification, notifications }
   }
   app.get('/api/health', (_req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok' }))
   app.get('/api/status', async (_req, res) => {

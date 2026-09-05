@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $verificationScript = Join-Path $PSScriptRoot 'Verify-AfterRestart.ps1'
+$hiddenRunner = Join-Path $PSScriptRoot 'Run-PowerShellHidden.vbs'
 $taskName = 'KRICHER OS - Verification apres redemarrage'
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$verificationScript`""
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "//B //NoLogo `"$hiddenRunner`" `"$verificationScript`""
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited

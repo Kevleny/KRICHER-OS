@@ -79,7 +79,12 @@ foreach ($service in $services) {
     $old = Get-PreviousService $previous $service
     $failures = if ($current.healthy) { 0 } elseif ($old) { [int]$old.consecutiveFailures + 1 } else { 1 }
     $lastRepair = if ($old -and $old.lastRepairAt) { [datetime]$old.lastRepairAt } else { [datetime]::MinValue }
+    $alertActive = [bool]($old -and $old.alertActive)
+    $alertSentAt = if ($old -and $old.alertSentAt) { $old.alertSentAt } else { $null }
+    $incidentId = if ($current.healthy) { $null } elseif ($old -and $old.incidentId) { $old.incidentId } else { [guid]::NewGuid().ToString() }
+    $repairAttempted = $false
     if (-not $current.healthy -and $failures -ge 2 -and -not $NoRepair -and ($now - $lastRepair.ToUniversalTime()).TotalMinutes -ge 5) {
+        $repairAttempted = $true
         Write-WatchLog "Reparation automatique de $service apres $failures controles en echec."
         $restarted = Invoke-Compose @('restart', $service)
         if (-not $restarted) { $restarted = Invoke-Compose @('up', '-d', $service) }
@@ -89,7 +94,32 @@ foreach ($service in $services) {
         $repairs += [ordered]@{ service = $service; attemptedAt = $now.ToString('o'); succeeded = [bool]$current.healthy }
         if ($current.healthy) { $failures = 0 }
     }
-    $serviceStatus[$service] = [ordered]@{ healthy = [bool]$current.healthy; state = $current.state; consecutiveFailures = $failures; lastRepairAt = if ($lastRepair -eq [datetime]::MinValue) { $null } else { $lastRepair.ToUniversalTime().ToString('o') } }
+    if ($current.healthy -and $alertActive) {
+        try {
+            & (Join-Path $PSScriptRoot 'Send-KricherOSMail.ps1') -Kind recovery -Subject "$service fonctionne de nouveau" -Body "Le service $service a récupéré après l’incident. Aucun geste n’est nécessaire." -IncidentKey "recovery-$incidentId"
+            $alertActive = $false
+            $alertSentAt = $null
+            Write-WatchLog "E-mail de retour a la normale envoye pour $service."
+        } catch { Write-WatchLog "E-mail de retour a la normale impossible pour $service : $($_.Exception.Message)" }
+    } elseif (-not $current.healthy -and $repairAttempted -and -not $alertActive) {
+        try {
+            $body = "Le service $service reste indisponible après une tentative automatique de redémarrage.`r`nÉtat détecté : $($current.state)`r`nÉchecs consécutifs : $failures`r`nLe serveur continuera ses contrôles automatiques."
+            & (Join-Path $PSScriptRoot 'Send-KricherOSMail.ps1') -Kind urgent -Subject "Alerte urgente : $service indisponible" -Body $body -IncidentKey "service-$incidentId"
+            $alertActive = $true
+            $alertSentAt = $now.ToString('o')
+            Write-WatchLog "Alerte urgente envoyee pour $service."
+        } catch { Write-WatchLog "Alerte urgente impossible pour $service : $($_.Exception.Message)" }
+    }
+    if ($current.healthy) { $incidentId = $null }
+    $serviceStatus[$service] = [ordered]@{
+        healthy = [bool]$current.healthy
+        state = $current.state
+        consecutiveFailures = $failures
+        lastRepairAt = if ($lastRepair -eq [datetime]::MinValue) { $null } else { $lastRepair.ToUniversalTime().ToString('o') }
+        incidentId = $incidentId
+        alertActive = $alertActive
+        alertSentAt = $alertSentAt
+    }
 }
 
 $restartHistory = @()

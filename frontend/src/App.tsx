@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Activity, ArrowUpRight, Bot, Box, Check, ChevronRight, Cpu, HardDrive, Home, LayoutDashboard, Power, RefreshCw, RotateCcw, Send, Server, Settings, ShieldCheck, Workflow, X } from 'lucide-react'
+import { Activity, ArrowUpRight, Bell, Bot, Box, CalendarClock, Check, ChevronRight, Cpu, Database, HardDrive, Home, KeyRound, LayoutDashboard, Mail, Power, RefreshCw, RotateCcw, Send, Server, Settings, ShieldCheck, Workflow, X } from 'lucide-react'
 import './App.css'
 
 type DriveStatus = { letter: string; label: string; totalGb: number; freeGb: number; usedPercent: number }
 type HostStatus = { checkedAt: string; uptimeSeconds: number; cpuLoadPercent: number; memory: { totalGb: number; usedGb: number; usedPercent: number }; drives: DriveStatus[]; backup: { createdAt: string; ageHours: number } | null; docker: { startsWithSession: boolean } }
 type WatchedService = { healthy: boolean; state: string; consecutiveFailures: number; lastRepairAt: string | null }
 type WatchdogStatus = { checkedAt: string; mode: string; healthy: boolean; dockerAvailable: boolean; services: Record<string, WatchedService>; repairs: { service: string; attemptedAt: string; succeeded: boolean }[]; restartScheduled: boolean; interventionRequired: boolean }
-type Status = { version: string; startedAt: string; uptime: number; memoryMb: number; node: string; platform: string; checkedAt: string; services: Record<string, boolean>; host: HostStatus | null; watchdog: WatchdogStatus | null }
+type BackupStatus = { state: 'running' | 'success' | 'failed'; message: string; checkedAt: string; completedAt?: string; retentionDays: number; monthlyRetention: number; encrypted: boolean; totalBytes?: number }
+type BackupVerificationStatus = { state: 'running' | 'success' | 'failed'; message: string; checkedAt: string; completedAt?: string }
+type NotificationStatus = { configured: boolean; checkedAt: string; recipient?: string; weeklySchedule?: string; lastSentAt?: string; lastWeeklyAt?: string; lastError?: string; message: string }
+type Status = { version: string; startedAt: string; uptime: number; memoryMb: number; node: string; platform: string; checkedAt: string; services: Record<string, boolean>; host: HostStatus | null; watchdog: WatchdogStatus | null; backup: BackupStatus | null; backupVerification: BackupVerificationStatus | null; notifications: NotificationStatus | null }
 type Service = { name: string; category: string; icon: typeof Workflow; description: string; next: string; statusKey?: string; url?: string }
-type ControlAction = { action: 'restart_service' | 'restart_stack' | 'restart_host'; target?: string; label: string }
+type ControlAction = { action: 'restart_service' | 'restart_stack' | 'restart_host' | 'backup_now' | 'verify_backup' | 'send_test_email'; target?: string; label: string }
 type ChatMessage = { role: 'user' | 'assistant'; content: string; proposal?: { target: string; reason: string } }
 
 const services: Service[] = [
@@ -20,7 +23,7 @@ const services: Service[] = [
   { name: 'PostgreSQL', category: 'Données', icon: Server, description: 'Les données durables de tes automatisations.', next: 'La base est réservée à n8n et n’est pas exposée sur le réseau.', statusKey: 'postgres' },
 ]
 const watchedLabels: Record<string, string> = { dashboard: 'Tableau de bord', gateway: 'Passerelle HTTPS', n8n: 'n8n', 'n8n-runner': 'Moteur n8n', postgres: 'PostgreSQL' }
-const tabs = [{ name: 'Vue d’ensemble', icon: LayoutDashboard }, { name: 'Services', icon: Box }, { name: 'Infrastructure', icon: Server }, { name: 'Assistant', icon: Bot }, { name: 'Paramètres', icon: Settings }]
+const tabs = [{ name: 'Vue d’ensemble', icon: LayoutDashboard }, { name: 'Services', icon: Box }, { name: 'Infrastructure', icon: Server }, { name: 'Assistant', icon: Bot }, { name: 'Sécurité & sauvegardes', icon: ShieldCheck }, { name: 'Paramètres', icon: Settings }]
 const duration = (s: number) => s < 60 ? `${Math.floor(s)} s` : s < 3600 ? `${Math.floor(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.floor(s % 3600 / 60)} min`
 
 export default function App() {
@@ -111,18 +114,19 @@ export default function App() {
     </aside>
     <div className="workspace"><header className="topbar"><span>Homelab <ChevronRight size={14}/> <strong>{page}</strong></span><span className="local-pill">Accès sécurisé</span></header>
       <main id="main">
-        <div className="page-heading"><div><p className="eyebrow">TON ESPACE, TES DONNÉES.</p><h1>{page === 'Vue d’ensemble' ? 'Bienvenue chez toi.' : page}</h1><p className="muted">{page === 'Vue d’ensemble' ? 'Le point de départ de ton serveur personnel.' : 'KRICHER OS · OptiPlex 3080'}</p></div><button className="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={16} className={busy ? 'spinning' : ''}/>{busy ? 'Actualisation…' : 'Actualiser'}</button></div>
+        <div className="page-heading"><div><p className="eyebrow">{page === 'Sécurité & sauvegardes' ? 'PROTECTION · REPRISE APRÈS PANNE' : 'TON ESPACE, TES DONNÉES.'}</p><h1>{page === 'Vue d’ensemble' ? 'Bienvenue chez toi.' : page}</h1><p className="muted">{page === 'Vue d’ensemble' ? 'Le point de départ de ton serveur personnel.' : page === 'Sécurité & sauvegardes' ? 'Sauvegardes automatiques, restauration vérifiée et alertes utiles.' : 'KRICHER OS · OptiPlex 3080'}</p></div><button className="button" disabled={busy} onClick={() => void refresh()}><RefreshCw size={16} className={busy ? 'spinning' : ''}/>{busy ? 'Actualisation…' : 'Actualiser'}</button></div>
         {error && <div className="error" role="alert">L’application ne répond pas. Les dernières mesures peuvent être anciennes. <button onClick={() => void refresh()}>Réessayer</button></div>}
         {page === 'Vue d’ensemble' && <SentinelOverview status={status} host={host} backupDrive={backupDrive} busy={controlBusy} message={controlMessage} propose={proposeTarget} openAssistant={() => setPage('Assistant')}/>}
         {page === 'Infrastructure' && <section className="overview" aria-label="État du système">
-          <article className="main-status"><div className="status-kicker"><Activity size={18}/> KRICHER OS <span className="badge">{online ? 'En ligne' : error ? 'Indisponible' : 'Connexion…'}</span></div><h2>{online ? 'Le socle est prêt.' : error ? 'Connexion interrompue.' : 'Connexion au serveur…'}</h2><p>Le serveur se surveille et tente de réparer<br/>automatiquement ses services essentiels.</p><div className="status-footer"><span>VERSION {status?.version ?? '0.3.0'}</span><span>LOCAL FIRST <ArrowUpRight size={14}/></span></div></article>
+          <article className="main-status"><div className="status-kicker"><Activity size={18}/> KRICHER OS <span className="badge">{online ? 'En ligne' : error ? 'Indisponible' : 'Connexion…'}</span></div><h2>{online ? 'Le socle est prêt.' : error ? 'Connexion interrompue.' : 'Connexion au serveur…'}</h2><p>Le serveur se surveille et tente de réparer<br/>automatiquement ses services essentiels.</p><div className="status-footer"><span>VERSION {status?.version ?? '0.4.0'}</span><span>LOCAL FIRST <ArrowUpRight size={14}/></span></div></article>
           <article className="metric"><div><Activity size={19}/><span>Disponibilité</span></div><strong>{status ? duration(host?.uptimeSeconds ?? status.uptime) : '—'}</strong><p>Depuis le démarrage du serveur</p><div className="metric-bottom"><span className={online ? 'dot' : 'dot offline'}/>{online ? 'Application accessible' : 'En attente de connexion'}</div></article>
           <article className="metric"><div><Cpu size={19}/><span>Mémoire du serveur</span></div><strong>{host ? Math.round(host.memory.usedPercent) : status ? Math.round(status.memoryMb) : '—'}<small>{host ? ' %' : ' Mo'}</small></strong><p>{host ? `${host.memory.usedGb} Go utilisés sur ${host.memory.totalGb} Go` : 'Processus KRICHER OS uniquement'}</p><div className="metric-bottom">Mesure Windows · toutes les 5 min</div></article>
         </section>}
         {page === 'Services' && <section className="services"><div className="section-heading"><h2>Tes services <span>06</span></h2><span className="muted">Installés progressivement</span></div><div className="service-grid">{services.map((service, index) => { const available = service.statusKey ? status?.services?.[service.statusKey] === true : false; return <button className="service-card" key={service.name} onClick={() => setSelected(service)}><div className="service-top"><span className={`service-icon color-${index}`}><service.icon size={23}/></span><ArrowUpRight size={18}/></div><span className="service-category">{service.category}</span><h3>{service.name}</h3><p>{service.description}</p><span className="service-state"><span className={`dot ${available ? '' : 'offline'}`}/>{available ? 'En ligne' : 'Non configuré'}</span></button> })}</div></section>}
         {page === 'Infrastructure' && <><section className="panel"><h2>OptiPlex 3080</h2><dl><div><dt>Processeur</dt><dd>{host ? `${Math.round(host.cpuLoadPercent)} %` : 'En attente'}</dd></div><div><dt>Mémoire</dt><dd>{host ? `${host.memory.usedGb} / ${host.memory.totalGb} Go` : 'En attente'}</dd></div><div><dt>Disque de sauvegarde K:</dt><dd>{backupDrive ? `${backupDrive.freeGb} Go libres sur ${backupDrive.totalGb} Go` : 'En attente'}</dd></div><div><dt>Dernière sauvegarde</dt><dd>{host?.backup ? `${new Date(host.backup.createdAt).toLocaleString('fr-FR')} · il y a ${Math.round(host.backup.ageHours)} h` : 'Aucune mesure'}</dd></div><div><dt>Démarrage Docker</dt><dd>{host?.docker.startsWithSession ? 'Automatique' : 'À vérifier'}</dd></div><div><dt>Surveillance</dt><dd>{status?.watchdog?.healthy ? 'Tous les services répondent' : status?.watchdog ? 'Réparation ou contrôle en cours' : 'Initialisation'}</dd></div></dl></section><ControlPanel status={status?.watchdog || null} busy={controlBusy} message={controlMessage} propose={setPendingAction}/></>}
         {page === 'Assistant' && <AssistantPage status={status} onProposal={proposeTarget} controlMessage={controlMessage}/>}
-        {page === 'Paramètres' && <section className="panel"><h2>Une installation personnelle</h2><dl><div><dt>Version</dt><dd>{status?.version ?? '0.3.0'}</dd></div><div><dt>Adresse publique</dt><dd>www.kricher.fr</dd></div><div><dt>Accès distant</dt><dd>HTTPS</dd></div><div><dt>Authentification</dt><dd>Accès protégé</dd></div><div><dt>Assistant</dt><dd>IA en ligne si une clé API est configurée · mode local sinon</dd></div></dl><p className="muted">Les commandes proposées par l’assistant restent limitées à une liste sûre et demandent toujours une confirmation.</p></section>}
+        {page === 'Sécurité & sauvegardes' && <SecurityBackupPage status={status} backupDrive={backupDrive} busy={controlBusy} message={controlMessage} propose={setPendingAction}/>}
+        {page === 'Paramètres' && <section className="panel"><h2>Une installation personnelle</h2><dl><div><dt>Version</dt><dd>{status?.version ?? '0.4.0'}</dd></div><div><dt>Adresse publique</dt><dd>www.kricher.fr</dd></div><div><dt>Accès distant</dt><dd>HTTPS</dd></div><div><dt>Authentification</dt><dd>Accès protégé</dd></div><div><dt>Assistant</dt><dd>IA en ligne si une clé API est configurée · mode local sinon</dd></div></dl><p className="muted">Les commandes proposées par l’assistant restent limitées à une liste sûre et demandent toujours une confirmation.</p></section>}
         <footer><span><Check size={14}/> Données conservées sur ton serveur</span><span>{status ? `Dernière mesure à ${new Date(status.checkedAt).toLocaleTimeString('fr-FR')}` : 'Connexion en cours'}</span></footer>
       </main>
     </div>
@@ -163,6 +167,42 @@ function SentinelOverview({ status, host, backupDrive, busy, message, propose, o
   </div>
 }
 
+function SecurityBackupPage({ status, backupDrive, busy, message, propose }: { status: Status | null; backupDrive: DriveStatus | undefined; busy: boolean; message: string; propose: (action: ControlAction) => void }) {
+  const backup = status?.backup
+  const verification = status?.backupVerification
+  const notifications = status?.notifications
+  const healthy = status?.watchdog?.healthy === true
+  const protectedState = healthy && backup?.state === 'success' && verification?.state === 'success'
+  const completed = backup?.completedAt ? new Date(backup.completedAt) : null
+  const backupDate = completed ? completed.toDateString() === new Date().toDateString() ? 'Aujourd’hui' : completed.toLocaleDateString('fr-FR') : 'En attente'
+  const backupDetail = completed ? `${completed.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · validée et chiffrée` : backup?.message || 'aucune donnée'
+  const verificationDate = verification?.completedAt ? new Date(verification.completedAt).toLocaleDateString('fr-FR') : 'En attente'
+  const items = [
+    { name: 'n8n et ses workflows', detail: 'Quotidien · 03:30 · chiffré', icon: Workflow },
+    { name: 'Base PostgreSQL', detail: 'Quotidien · intégrité vérifiée', icon: Database },
+    { name: 'Configuration et secrets', detail: 'À chaque sauvegarde · chiffré', icon: KeyRound },
+    { name: 'Test de restauration', detail: 'Chaque dimanche · sans toucher à la production', icon: ShieldCheck },
+  ]
+  return <div className="security-dashboard">
+    <section className={`security-hero ${protectedState ? '' : 'attention'}`}><span className="security-shield"><ShieldCheck size={34}/></span><div><p className="eyebrow">ÉTAT GÉNÉRAL</p><h2>{protectedState ? 'Ton serveur est protégé et sauvegardé.' : 'La protection est en cours de finalisation.'}</h2><p>{healthy ? 'Les services répondent.' : 'Un service demande une vérification.'} {backup?.message || 'Première sauvegarde en préparation.'}</p></div><span className={`security-health ${protectedState ? '' : 'pending'}`}><i className={`dot ${protectedState ? '' : 'offline'}`}/>{protectedState ? 'Tous les contrôles OK' : 'Configuration en cours'}</span></section>
+
+    <section className="security-metrics" aria-label="État des sauvegardes">
+      <article><p>DERNIÈRE SAUVEGARDE</p><strong>{backupDate}</strong><small>{backupDetail}</small></article>
+      <article><p>RÉTENTION</p><strong>{backup?.retentionDays ?? 30} jours</strong><small>+ {backup?.monthlyRetention ?? 12} sauvegardes mensuelles</small></article>
+      <article><p>ESPACE K:</p><strong>{backupDrive ? `${backupDrive.freeGb} Go` : '—'}</strong><small>disponibles</small></article>
+      <article><p>TEST DE RESTAURATION</p><strong>{verification?.state === 'success' ? 'Réussi' : verification?.state === 'failed' ? 'Échec' : 'En attente'}</strong><small>{verificationDate}</small></article>
+      <article><p>PROCHAIN RAPPORT</p><strong>Dimanche</strong><small>18:00 · par e-mail</small></article>
+    </section>
+
+    <div className="security-columns">
+      <section className="security-panel"><p className="eyebrow">SAUVEGARDES AUTOMATIQUES</p><h2>Plan de protection</h2><p className="security-intro">Les données vitales sont copiées sur K: et leur restauration est testée.</p><div className="protection-list">{items.map(({ name, detail, icon: Icon }) => <div className="protection-row" key={name}><span><Icon size={17}/></span><div><strong>{name}</strong><small>{detail}</small></div><em>{verification?.state === 'failed' && name === 'Test de restauration' ? 'À vérifier' : 'Protégé'}</em></div>)}</div><div className="security-actions"><button className="button assistant-button" disabled={busy} onClick={() => propose({ action: 'backup_now', label: 'Lancer une sauvegarde maintenant' })}><HardDrive size={16}/> Sauvegarder maintenant</button><button className="button subtle" disabled={busy || backup?.state !== 'success'} onClick={() => propose({ action: 'verify_backup', label: 'Tester la dernière sauvegarde' })}><ShieldCheck size={16}/> Tester la restauration</button></div></section>
+
+      <section className="security-panel"><p className="eyebrow">NOTIFICATIONS E-MAIL</p><h2>Seulement quand cela compte.</h2><p className="security-intro">Les alertes sont qualifiées et regroupées pour éviter le bruit inutile.</p><div className="mail-rule urgent"><span className="mail-icon"><Bell size={18}/></span><div><p>ALERTE URGENTE · IMMÉDIATE</p><strong>Un service reste arrêté après réparation</strong><small>E-mail après l’échec des tentatives automatiques.</small></div><em>{notifications?.configured ? 'Activée' : 'À configurer'}</em></div><div className="mail-rule weekly"><span className="mail-icon"><CalendarClock size={18}/></span><div><p>RAPPORT HEBDOMADAIRE</p><strong>Résumé complet chaque dimanche à 18:00</strong><small>Services, sauvegardes, stockage, incidents et réparations.</small></div><em>{notifications?.configured ? 'Activé' : 'À configurer'}</em></div><div className="security-actions"><button className="button assistant-button" disabled={busy || !notifications?.configured} onClick={() => propose({ action: 'send_test_email', label: 'Envoyer un e-mail de test' })}><Mail size={16}/> Envoyer un e-mail test</button><span className={`mail-config-state ${notifications?.configured ? 'ready' : ''}`}>{notifications?.configured ? `Destinataire : ${notifications.recipient}` : 'Adresse et compte d’envoi requis'}</span></div></section>
+    </div>
+    {message && <p className="action-message" role="status">{message}</p>}
+  </div>
+}
+
 function ControlPanel({ status, busy, message, propose }: { status: WatchdogStatus | null; busy: boolean; message: string; propose: (action: ControlAction) => void }) {
   return <section className="panel control-panel"><div className="section-heading"><div><p className="eyebrow">CONTRÔLE MANUEL</p><h2>Services surveillés</h2></div><span className="muted">Confirmation obligatoire</span></div>
     <div className="control-list">{Object.entries(watchedLabels).map(([key, label]) => { const service = status?.services?.[key]; return <div className="control-row" key={key}><span className={`dot ${service?.healthy ? '' : 'offline'}`}/><div><strong>{label}</strong><small>{service?.healthy ? 'En ligne' : service ? `État : ${service.state}` : 'Mesure en attente'}</small></div><button disabled={busy} className="button subtle" onClick={() => propose({ action: 'restart_service', target: key, label: `Redémarrer ${label}` })}><RotateCcw size={15}/> Redémarrer</button></div> })}</div>
@@ -198,7 +238,16 @@ function ConfirmDialog({ action, onCancel, onConfirm }: { action: ControlAction;
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => { const dialog = ref.current!; dialog.showModal(); return () => dialog.close() }, [])
   const host = action.action === 'restart_host'
-  return <dialog ref={ref} aria-labelledby="confirm-title" onCancel={onCancel}><div className="dialog-body"><Power size={32}/><p className="eyebrow">CONFIRMATION REQUISE</p><h2 id="confirm-title">{action.label}</h2><p>{host ? 'Le tableau de bord sera indisponible quelques minutes pendant le redémarrage du serveur.' : 'Le service sera brièvement indisponible pendant son redémarrage.'}</p><div className="dialog-buttons"><button className="button subtle" onClick={onCancel}>Annuler</button><button className={`button ${host ? 'danger' : ''}`} onClick={onConfirm}>Confirmer</button></div></div></dialog>
+  const descriptions: Record<ControlAction['action'], string> = {
+    restart_service: 'Le service sera brièvement indisponible pendant son redémarrage.',
+    restart_stack: 'Les services seront brièvement indisponibles pendant leur redémarrage.',
+    restart_host: 'Le tableau de bord sera indisponible quelques minutes pendant le redémarrage du serveur.',
+    backup_now: 'Une nouvelle copie chiffrée sera créée sur le lecteur K:.',
+    verify_backup: 'La sauvegarde sera déchiffrée et testée sans modifier les données en production.',
+    send_test_email: 'Un message de contrôle sera envoyé au destinataire configuré.',
+  }
+  const DialogIcon = action.action === 'backup_now' ? HardDrive : action.action === 'verify_backup' ? ShieldCheck : action.action === 'send_test_email' ? Mail : Power
+  return <dialog ref={ref} aria-labelledby="confirm-title" onCancel={onCancel}><div className="dialog-body"><DialogIcon size={32}/><p className="eyebrow">CONFIRMATION REQUISE</p><h2 id="confirm-title">{action.label}</h2><p>{descriptions[action.action]}</p><div className="dialog-buttons"><button className="button subtle" onClick={onCancel}>Annuler</button><button className={`button ${host ? 'danger' : ''}`} onClick={onConfirm}>Confirmer</button></div></div></dialog>
 }
 
 function ServiceDialog({ service, onClose }: { service: Service; onClose: () => void }) {

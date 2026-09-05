@@ -85,6 +85,24 @@ foreach ($requestFile in @(Get-ChildItem -LiteralPath $requestDirectory -Filter 
                 & shutdown.exe /r /t 20 /d p:0:0 /c 'Redemarrage manuel demande depuis KRICHER OS' | Out-Null
                 break
             }
+            'backup_now' {
+                & (Join-Path $PSScriptRoot 'Backup-KricherOS.ps1')
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'La sauvegarde a échoué.' }
+                $result.state = 'completed'
+                $result.message = 'La sauvegarde chiffrée est terminée.'
+            }
+            'verify_backup' {
+                & (Join-Path $PSScriptRoot 'Test-KricherOSBackup.ps1')
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Le test de restauration a échoué.' }
+                $result.state = 'completed'
+                $result.message = 'La sauvegarde peut être déchiffrée et restaurée.'
+            }
+            'send_test_email' {
+                & (Join-Path $PSScriptRoot 'Send-KricherOSMail.ps1') -Kind test -Subject 'Test des notifications' -Body 'Les alertes KRICHER OS sont correctement configurées.' -IncidentKey ("manual-test-" + $request.id) -Force
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "L’e-mail de test n’a pas pu être envoyé." }
+                $result.state = 'completed'
+                $result.message = 'E-mail de test envoyé.'
+            }
             default { throw 'Action non autorisee.' }
         }
         if ($request.action -ne 'restart_host') {

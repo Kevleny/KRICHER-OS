@@ -3,7 +3,7 @@ import path from 'node:path'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 
 const services = ['dashboard', 'gateway', 'n8n', 'n8n-runner', 'postgres']
-const actions = ['restart_service', 'restart_stack', 'restart_host']
+const actions = ['restart_service', 'restart_stack', 'restart_host', 'backup_now', 'verify_backup', 'send_test_email']
 
 export function createControlService(controlDir = process.env.CONTROL_DIR || '') {
   const token = crypto.randomBytes(32).toString('base64url')

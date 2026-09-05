@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $updateScript = Join-Path $PSScriptRoot 'Update-OvhDynHost.ps1'
+$hiddenRunner = Join-Path $PSScriptRoot 'Run-PowerShellHidden.vbs'
 $taskName = 'KRICHER OS - Mise a jour DynHost'
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$updateScript`""
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "//B //NoLogo `"$hiddenRunner`" `"$updateScript`""
 $triggers = @(
     (New-ScheduledTaskTrigger -AtLogOn -User $currentUser),
     (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 10))

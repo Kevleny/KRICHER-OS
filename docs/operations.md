@@ -9,16 +9,32 @@ Ces adresses ne sont accessibles que depuis l’OptiPlex.
 
 ## Sauvegardes
 
-La tâche Windows `KRICHER OS - Sauvegarde quotidienne` s’exécute chaque jour à 03:30. Les sauvegardes sont conservées pendant 14 jours dans `K:\KRICHER-OS\Backups` sur le second disque NVMe.
+La tâche Windows `KRICHER OS - Sauvegarde quotidienne` s’exécute chaque jour à 03:30. Les sauvegardes quotidiennes sont conservées pendant 30 jours dans `K:\KRICHER-OS\Backups`, avec une archive mensuelle pendant 12 mois.
 
 Chaque instantané contient :
 
 - un export PostgreSQL au format personnalisé ;
 - les données du volume n8n ;
-- la clé qui permet de déchiffrer les identifiants enregistrés dans n8n.
-- les identifiants d’accès au tableau de bord public.
+- la configuration Docker, Caddy, les workflows et les scripts ;
+- les secrets locaux nécessaires à une reprise complète.
 
-La clé de chiffrement et les identifiants sont sensibles. Le dossier de sauvegarde ne doit pas être partagé.
+Tous ces fichiers sont chiffrés en AES-256 avant leur écriture sur `K:`. La clé de récupération reste dans `.secrets/backup_recovery_key` et doit être conservée séparément du serveur pour couvrir une panne complète du disque système.
+
+La tâche `KRICHER OS - Test de restauration` s’exécute le dimanche à 04:30. Elle contrôle les empreintes, déchiffre la dernière sauvegarde dans un dossier temporaire, inspecte l’export PostgreSQL et l’archive n8n, puis supprime les fichiers temporaires. Elle ne modifie jamais les données actives. Une restauration réelle reste protégée par le paramètre explicite `-ConfirmRestore` de `scripts/Restore-KricherOS.ps1`.
+
+La page **Sécurité & sauvegardes** permet de lancer une sauvegarde et un test de restauration après confirmation.
+
+## Notifications
+
+Le gardien envoie une alerte urgente seulement lorsqu’un service reste indisponible après une tentative automatique de réparation. Une seconde notification annonce le retour à la normale. La tâche `KRICHER OS - Rapport hebdomadaire` envoie chaque dimanche à 18:00 un résumé des services, du stockage, des incidents et des sauvegardes.
+
+Les notifications utilisent un compte SMTP. Les réglages sont conservés localement et le mot de passe est chiffré par Windows pour le compte qui exécute les tâches :
+
+```powershell
+.\scripts\Configure-MailNotifications.ps1
+```
+
+Le bouton **Envoyer un e-mail test** devient disponible dans le tableau de bord dès que cette configuration est terminée.
 
 ## Redémarrage et diagnostic
 
@@ -31,6 +47,8 @@ docker compose logs --tail 100
 Les conteneurs redémarrent automatiquement avec Docker Desktop.
 
 Les tâches Windows `KRICHER OS - Demarrage automatique` et `KRICHER OS - Supervision Windows` démarrent les services à l’ouverture de session et actualisent toutes les cinq minutes les mesures affichées dans le tableau de bord.
+
+Toutes les tâches KRICHER OS passent par `wscript.exe` et `Run-PowerShellHidden.vbs`. PowerShell travaille ainsi sans ouvrir de fenêtre sur le Bureau.
 
 La tâche `KRICHER OS - Surveillance et controle` s’exécute toutes les deux minutes. Elle surveille le tableau de bord, Caddy, n8n, son moteur d’exécution et PostgreSQL. Après deux échecs consécutifs, elle tente de redémarrer uniquement le service concerné. Si un service critique reste indisponible pendant quatre contrôles, elle peut redémarrer Windows. Deux garde-fous empêchent les boucles : six heures entre deux redémarrages et deux redémarrages maximum sur vingt-quatre heures.
 
