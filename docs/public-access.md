@@ -8,7 +8,7 @@ Le tableau de bord utilise `www.kricher.fr` et n8n utilise `n8n.kricher.fr`. Le 
 2. Dans la zone DNS OVH de `kricher.fr`, remplacer l’enregistrement `A` de `www` et créer un enregistrement `A` pour `n8n`, tous deux vers l’adresse IPv4 publique de la box.
 3. Si cette adresse publique change, configurer OVH DynHost pour `www.kricher.fr` et `n8n.kricher.fr`.
 4. Rediriger les ports TCP `80` et `443` de la box vers `192.168.1.74`.
-5. Autoriser les ports TCP `80` et `443` dans le pare-feu Windows pour le profil privé.
+5. Exécuter `scripts/Enable-PublicFirewall.ps1` en administrateur pour autoriser uniquement les ports TCP `80` et `443` dans le pare-feu Windows.
 
 Ne pas créer d’enregistrement `AAAA` tant qu’IPv6 et son pare-feu n’ont pas été configurés et testés.
 
