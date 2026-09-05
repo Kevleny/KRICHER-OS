@@ -68,10 +68,14 @@ $dynHostCredentials = Join-Path $projectRoot '.secrets\ovh_dynhost_credentials.j
 if (Test-Path -LiteralPath $dynHostCredentials) {
     Copy-Item -LiteralPath $dynHostCredentials -Destination (Join-Path $snapshotDirectory 'ovh_dynhost_credentials.json')
 }
+$recoveryCodes = Join-Path $projectRoot '.secrets\n8n-recovery-codes.txt'
+if (Test-Path -LiteralPath $recoveryCodes) {
+    Copy-Item -LiteralPath $recoveryCodes -Destination (Join-Path $snapshotDirectory 'n8n-recovery-codes.txt')
+}
 @{
     createdAt = (Get-Date).ToUniversalTime().ToString('o')
     retentionDays = $RetentionDays
-    components = @('PostgreSQL', 'n8n data', 'n8n encryption key', 'dashboard credentials', 'OVH DynHost credentials when configured')
+    components = @('PostgreSQL', 'n8n data', 'n8n encryption key', 'n8n recovery codes when configured', 'dashboard credentials', 'OVH DynHost credentials when configured')
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $snapshotDirectory 'manifest.json') -Encoding UTF8
 
 Get-ChildItem -LiteralPath $BackupRoot -Directory | Where-Object {

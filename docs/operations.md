@@ -34,6 +34,8 @@ Les tâches Windows `KRICHER OS - Demarrage automatique` et `KRICHER OS - Superv
 
 Le workflow n8n `KRICHER OS - Contrôle de santé` vérifie toutes les six heures le tableau de bord, n8n, PostgreSQL et la remontée des mesures Windows. Ses exécutions sont visibles dans n8n.
 
+Après une modification du démarrage, `scripts/Register-RestartVerificationTask.ps1` programme un contrôle unique. Son résultat est écrit dans `.runtime/post-restart-report.json` après la prochaine ouverture de session.
+
 ## Stockage
 
 Le second disque NVMe est monté sous `K:` avec l’étiquette `Sauvegarde`. Il reçoit les sauvegardes et exports de KRICHER OS. Les volumes actifs PostgreSQL et n8n restent dans le stockage Linux géré par Docker afin de préserver leurs permissions et leurs performances.
