@@ -64,10 +64,14 @@ Export-N8nDataArchive (Join-Path $snapshotDirectory 'n8n-data.tgz')
 
 Copy-Item -LiteralPath (Join-Path $projectRoot '.secrets\n8n_encryption_key') -Destination (Join-Path $snapshotDirectory 'n8n_encryption_key')
 Copy-Item -LiteralPath (Join-Path $projectRoot '.secrets\dashboard_credentials.txt') -Destination (Join-Path $snapshotDirectory 'dashboard_credentials.txt')
+$dynHostCredentials = Join-Path $projectRoot '.secrets\ovh_dynhost_credentials.json'
+if (Test-Path -LiteralPath $dynHostCredentials) {
+    Copy-Item -LiteralPath $dynHostCredentials -Destination (Join-Path $snapshotDirectory 'ovh_dynhost_credentials.json')
+}
 @{
     createdAt = (Get-Date).ToUniversalTime().ToString('o')
     retentionDays = $RetentionDays
-    components = @('PostgreSQL', 'n8n data', 'n8n encryption key', 'dashboard credentials')
+    components = @('PostgreSQL', 'n8n data', 'n8n encryption key', 'dashboard credentials', 'OVH DynHost credentials when configured')
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $snapshotDirectory 'manifest.json') -Encoding UTF8
 
 Get-ChildItem -LiteralPath $BackupRoot -Directory | Where-Object {

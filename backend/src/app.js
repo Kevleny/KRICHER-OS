@@ -2,6 +2,7 @@ import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import net from 'node:net'
+import { readFile } from 'node:fs/promises'
 
 async function checkHttp(url) {
   try {
@@ -21,6 +22,14 @@ function checkTcp(host, port) {
   })
 }
 
+async function readHostStatus(file) {
+  if (!file) return null
+  try {
+    const status = JSON.parse(await readFile(file, 'utf8'))
+    return status && typeof status.checkedAt === 'string' ? status : null
+  } catch { return null }
+}
+
 export function createApp() {
   const app = express()
   const startedAt = new Date(Date.now() - process.uptime() * 1000).toISOString()
@@ -31,11 +40,12 @@ export function createApp() {
   })
   app.get('/api/health', (_req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok' }))
   app.get('/api/status', async (_req, res) => {
-    const [n8n, postgres] = await Promise.all([
+    const [n8n, postgres, host] = await Promise.all([
       checkHttp(process.env.N8N_HEALTH_URL || 'http://n8n:5678/healthz'),
       checkTcp(process.env.POSTGRES_HOST || 'postgres', Number(process.env.POSTGRES_PORT || 5432)),
+      readHostStatus(process.env.HOST_STATUS_FILE),
     ])
-    res.set('Cache-Control', 'no-store').json({ version: '0.1.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres } })
+    res.set('Cache-Control', 'no-store').json({ version: '0.2.0', startedAt, uptime: process.uptime(), memoryMb: process.memoryUsage().rss / 1024 / 1024, node: process.version, platform: process.platform, checkedAt: new Date().toISOString(), services: { n8n, postgres }, host })
   })
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }))
   const publicDir = fileURLToPath(new URL('../../public/', import.meta.url))

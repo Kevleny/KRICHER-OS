@@ -8,7 +8,7 @@ L’accès public est actif. Les deux noms DNS pointent vers la box, les ports T
 
 1. Réserver l’adresse locale `192.168.1.74` pour l’OptiPlex dans la box.
 2. Dans la zone DNS OVH de `kricher.fr`, remplacer l’enregistrement `A` de `www` et créer un enregistrement `A` pour `n8n`, tous deux vers l’adresse IPv4 publique de la box.
-3. Si cette adresse publique change, configurer OVH DynHost pour `www.kricher.fr` et `n8n.kricher.fr`.
+3. OVH DynHost actualise automatiquement `www.kricher.fr` et `n8n.kricher.fr` toutes les dix minutes avec la tâche Windows `KRICHER OS - Mise a jour DynHost`.
 4. Rediriger les ports TCP `80` et `443` de la box vers `192.168.1.74`.
 5. Exécuter `scripts/Enable-PublicFirewall.ps1` en administrateur pour autoriser uniquement les ports TCP `80` et `443` dans le pare-feu Windows.
 

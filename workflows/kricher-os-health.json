@@ -1,0 +1,75 @@
+{
+  "id": "235db510-ece3-44a7-86e9-cd7d4448ac4c",
+  "name": "KRICHER OS - Contrôle de santé",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c1c51f87-9c2a-4c14-9525-82dfc5f937eb",
+      "name": "Test manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [260, 220]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "7e0032ce-7763-4201-b7bc-ab0f504233f2",
+      "name": "Toutes les 6 heures",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://dashboard:3000/api/status",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "8c84699a-08cd-4099-aee1-bdd1dc91d427",
+      "name": "Lire l'état de KRICHER OS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 310]
+    },
+    {
+      "parameters": {
+        "jsCode": "const status = $input.first().json;\nconst services = status.services ?? {};\nconst problems = [];\nif (services.n8n !== true) problems.push('n8n');\nif (services.postgres !== true) problems.push('PostgreSQL');\nif (!status.host) problems.push('supervision Windows');\nif (problems.length) {\n  throw new Error(`Services indisponibles : ${problems.join(', ')}`);\n}\nreturn [{ json: {\n  state: 'healthy',\n  checkedAt: status.checkedAt,\n  version: status.version,\n  cpuLoadPercent: status.host.cpuLoadPercent,\n  memoryUsedPercent: status.host.memory.usedPercent,\n  lastBackupAt: status.host.backup?.createdAt ?? null\n} }];"
+      },
+      "id": "35256967-0e77-4557-9cb2-03e43e32ad6d",
+      "name": "Valider les services",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 310]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Test manuel": {
+      "main": [[{ "node": "Lire l'état de KRICHER OS", "type": "main", "index": 0 }]]
+    },
+    "Toutes les 6 heures": {
+      "main": [[{ "node": "Lire l'état de KRICHER OS", "type": "main", "index": 0 }]]
+    },
+    "Lire l'état de KRICHER OS": {
+      "main": [[{ "node": "Valider les services", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "tags": []
+}

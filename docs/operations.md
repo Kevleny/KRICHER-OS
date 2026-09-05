@@ -30,6 +30,10 @@ docker compose logs --tail 100
 
 Les conteneurs redémarrent automatiquement avec Docker Desktop.
 
+Les tâches Windows `KRICHER OS - Demarrage automatique` et `KRICHER OS - Supervision Windows` démarrent les services à l’ouverture de session et actualisent toutes les cinq minutes les mesures affichées dans le tableau de bord.
+
+Le workflow n8n `KRICHER OS - Contrôle de santé` vérifie toutes les six heures le tableau de bord, n8n, PostgreSQL et la remontée des mesures Windows. Ses exécutions sont visibles dans n8n.
+
 ## Stockage
 
 Le second disque NVMe est monté sous `K:` avec l’étiquette `Sauvegarde`. Il reçoit les sauvegardes et exports de KRICHER OS. Les volumes actifs PostgreSQL et n8n restent dans le stockage Linux géré par Docker afin de préserver leurs permissions et leurs performances.

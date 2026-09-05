@@ -5,6 +5,10 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     restart: unless-stopped
+    environment:
+      HOST_STATUS_FILE: /app/runtime/host-status.json
+    volumes:
+      - ./.runtime:/app/runtime:ro
     read_only: true
     cap_drop:
       - ALL
