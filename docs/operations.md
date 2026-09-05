@@ -34,6 +34,6 @@ Les conteneurs redémarrent automatiquement avec Docker Desktop.
 
 Le second disque NVMe est monté sous `K:` avec l’étiquette `Sauvegarde`. Il reçoit les sauvegardes et exports de KRICHER OS. Les volumes actifs PostgreSQL et n8n restent dans le stockage Linux géré par Docker afin de préserver leurs permissions et leurs performances.
 
-## Accès distant prévu
+## Accès distant
 
 Le domaine racine `kricher.fr` et les enregistrements de messagerie OVH restent inchangés. Le tableau de bord utilise `www.kricher.fr` avec une authentification séparée, et n8n utilise `n8n.kricher.fr`. Les deux accès publics passent par HTTPS.

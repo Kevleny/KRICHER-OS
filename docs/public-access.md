@@ -2,6 +2,8 @@
 
 Le tableau de bord utilise `www.kricher.fr` et n8n utilise `n8n.kricher.fr`. Le domaine racine `kricher.fr` et les enregistrements de messagerie restent inchangés.
 
+L’accès public est actif. Les deux noms DNS pointent vers la box, les ports TCP 80 et 443 sont redirigés vers l’OptiPlex et le pare-feu Windows autorise ces deux ports. Caddy a obtenu les certificats HTTPS et les renouvelle automatiquement.
+
 ## Préparation réseau
 
 1. Réserver l’adresse locale `192.168.1.74` pour l’OptiPlex dans la box.
@@ -22,7 +24,7 @@ docker compose -f compose.yaml -f compose.public.yaml ps
 docker compose -f compose.yaml -f compose.public.yaml logs gateway --tail 100
 ```
 
-Caddy obtient et renouvelle automatiquement le certificat HTTPS. Les volumes `caddy_data` et `caddy_config` conservent les certificats et leur état.
+Caddy obtient et renouvelle automatiquement les certificats HTTPS. Les volumes `caddy_data` et `caddy_config` conservent les certificats et leur état.
 
 ## Contrôles
 
