@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" role="img" aria-labelledby="title">
+  <title id="title">Bouclier KRICHER OS</title>
+  <g transform="translate(6 0)">
+  <path fill="#090d0f" stroke="#343c3f" stroke-width="6" stroke-linejoin="round" d="M50 5 91 23v34c0 23-13 39-41 50C22 96 9 80 9 57V23L50 5Z"/>
+  <path fill="#111719" d="M50 13 83 27v29c0 18-10 31-33 41-23-10-33-23-33-41V27l33-14Z"/>
+  <path fill="#1d2426" d="m50 13 33 14-21 18-12-9V13ZM17 27l22 18-22 19V27Zm66 29v8L57 88 50 77l33-21ZM50 77v20L34 89l16-12Z"/>
+  <path fill="#20c9a5" d="M26 27h13v31l29-31h17L42 71v22H26V27Z"/>
+  <path fill="#edf3f1" d="m48 56 11-10 26 30-12 12-25-32Z"/>
+  <path fill="#ff4048" d="m50 96 6 6-6 6-6-6 6-6Z"/>
+  </g>
+</svg>
